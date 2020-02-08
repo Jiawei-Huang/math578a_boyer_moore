@@ -86,8 +86,7 @@ public:
    */
   void processing(const std::string &pat, std::map<char, size_t> &alphabet) {
     for (size_t i = 0; i < pat.size(); ++i) {
-      if (alphabet.find(pat[i]) != alphabet.end())
-        alphabet[pat[i]] = i;
+      alphabet[pat[i]] = i;
     }
     std::cout << "Bad character array list :\n";
     print_map(alphabet);
@@ -111,8 +110,8 @@ public:
         ex_list[pat[i]].push_back(i);
     }
 
-    std::cout << "character : index\n";
-    print_map(ex_list);
+    // std::cout << "character : index\n";
+    // print_map(ex_list);
   }
 
   /*
@@ -123,11 +122,11 @@ public:
    * :param i:       start index of the text
    * : param j:      current index of the pattern
    */
-  int get_bmshift(std::map<char, std::vector<size_t>> ex_list, std::string text,
-                  size_t i, size_t j) {
+  size_t get_bmshift(std::map<char, std::vector<size_t>> ex_list,
+                     std::string text, size_t i, size_t j) {
     std::map<char, std::vector<size_t>>::iterator it =
         ex_list.find(text[i + j]);
-    int shift = 0;
+    size_t shift = 0;
     if (it == ex_list.end())
       shift = j + 1;
     else {
@@ -142,28 +141,36 @@ public:
     return shift;
   }
 
-  void badchar(std::string text, std::string pat) {
+  /**
+   * @brief bad character boyer-moore algorithm
+   *
+   * @param text      text
+   * @param pat       pattern
+   */
+  void badchar(const std::string &text, const std::string &pat) {
     size_t n = text.size();
     size_t m = pat.size();
     std::map<char, size_t> alphabet;
-    for (size_t i = 0; i < text.size(); ++i) {
-      alphabet[text[i]] = 0;
-    }
+
     processing(pat, alphabet);
     std::map<char, std::vector<size_t>> ex_list;
     extended_processing(pat, ex_list);
 
-    int i = 0, j = m - 1;
+    size_t i = 0;
+    int j = m - 1;
     while (i <= n - m) {
       while (pat[j] != text[i + j]) {
         std::cout << "mismatch happend \n";
-        int shift = get_bmshift(ex_list, text, i, j);
+        size_t shift = get_bmshift(ex_list, text, i, j);
         // int shift = std::max(j - alphabet.at(text[i+j]), 1);
-        i += shift;
+
         print_mismatch(pat, text, i, j, shift);
+        i += shift;
         j = m - 1;
       }
+
       j--;
+
       if (j < 0) {
         std::cout << "pattern matched at index " << i << " with text "
                   << text.substr(0, i) << " " << text.substr(i, m) << " "
@@ -175,6 +182,15 @@ public:
   }
 
   //     2. goof suffix rule
+  /**
+   * @brief     naive match function, one string with two different starting
+   * positions
+   *
+   * @param s       matching string
+   * @param q       first position index
+   * @param i       second position index
+   * @return size_t         matching end position of former one(q)
+   */
   static size_t match(const std::string &s, size_t q, size_t i) {
     while (i < s.length() && s[q] == s[i]) {
       ++q;
@@ -183,6 +199,12 @@ public:
     return q;
   }
 
+  /**
+   * @brief       Z value computation algorithm (Andrew's version)
+   *
+   * @param s     string
+   * @return std::vector<size_t>      array storing z values of string s
+   */
   std::vector<size_t> z_array(const std::string &s) {
     std::vector<size_t> Z(s.length());
 
@@ -203,32 +225,37 @@ public:
           l = k;
         }
       }
-      // cout << k + 1 << "\t" << l + 1 << "\t" << r << "\t"
-      //     << Z[k] << "\t" << the_case << endl;
     }
     return Z;
   }
 
-  /*
-   * This function is to calculate the N array for good suffix rule
-   * N[j] = Z[n-j+1], Z is the z-value list of reverse s
-   * :param s: pattern string
+  /**
+   * @brief         To calculate the N array for good suffix rule,
+   *                N[j] = Z[n-j+1], Z is the z-value list of reverse s
+   *
+   * @param s       pattern string
+   * @return std::vector<size_t>        N array
    */
   std::vector<size_t> n_array(const std::string &s) {
     std::string sr(s);
+    // reverse s to get z value of reversed pattern
     std::reverse(sr.begin(), sr.end());
 
     std::vector<size_t> z = z_array(sr);
+    // reverse again to get N value. Z[i] = N[n-j+1], e.g. N[1] = Z[n], N[2] =
+    // Z[n-1]
     std::reverse(z.begin(), z.end());
 
     return z;
   }
 
-  /*
-   * This function is to calculate the L' array for good suffix rule
-   * L'[i] = largest index j less than n such that N[j] = |P[i:n]|
-   * :param p: pattern string
-   * :param n: N array got from reverse z algorithm
+  /**
+   * @brief     This function is to calculate the L' array for good suffix rule
+   *            L'[i] = largest index j less than n such that N[j] = |P[i:n]|
+   *
+   * @param p       pattern string
+   * @param n       N array got from reverse function n_array
+   * @return std::vector<size_t>        L' array
    */
   std::vector<size_t> big_l_prime_array(const std::string &p,
                                         std::vector<size_t> &n) {
@@ -236,7 +263,7 @@ public:
     for (size_t j = 0; j < p.size() - 1; ++j) {
       // cause index begin at 0, so the (p.size() - n[j] + 1)th elem's index
       // should be p.size() - n[j]
-      int i = p.size() - n[j];
+      size_t i = p.size() - n[j];
       if (i < p.size())
         // j is the index of n(counting starts at 0), but we need to store the
         // value of lp, so we use j + 1
@@ -244,11 +271,14 @@ public:
     }
     return lp;
   }
-  /*
-   * This function is to calculate the L array for good suffix rule
-   * L[i] = largest index j less than n such that N[j] >= |P[i:n]|
-   * :param p: pattern string
-   * :param lp: L' array
+
+  /**
+   * @brief     calculate the L array for good suffix rule
+   *            L[i] = largest index j less than n such that N[j] >= |P[i:n]|
+   *
+   * @param p       pattern
+   * @param lp      L' array get from big_l_prime_array
+   * @return std::vector<size_t>        L array
    */
   std::vector<size_t> big_l_array(std::string p, std::vector<size_t> lp) {
     std::vector<size_t> l(p.size(), 0);
@@ -259,19 +289,22 @@ public:
     return l;
   }
 
-  /*
-   * This function is to calculate the l' array for good suffix rule
-   * l'[i] = largest j <= |P[i:n]| = n-i+1, such that N[j] = j
-   * :param n: N array got from reverse z algorithm
+  /**
+   * @brief         calculate the l' array for good suffix rule
+   *                l'[i] = largest j <= |P[i:n]| = n-i+1, such that N[j] = j
+   * @param n       N array got from reverse z algorithm
+   * @return std::vector<size_t>        l' array
    */
   std::vector<size_t> small_l_prime_array(std::vector<size_t> &n) {
     std::vector<size_t> small_lp(n.size(), 0);
 
+    // first get the rightmost N[j] = j, then i = n-j+1(cause index starts at 0,
+    // so here is N[j] = j+1, i = n-j-1)
     for (size_t i = 0; i < n.size(); ++i) {
       if (n[i] == i + 1) // prefix matching a suffix
         small_lp[n.size() - i - 1] = i + 1;
     }
-
+    // then for any i < j, l'[i] = l'[j], here
     for (int i = n.size() - 2; i >= 0; --i) {
       if (small_lp[i] == 0) // smear them out to the left
         small_lp[i] = small_lp[i + 1];
@@ -280,10 +313,16 @@ public:
     return small_lp;
   }
 
-  // Given a mismatch at offset i, and given L/L' and l' arrays,
-  // return amount to shift as determined by good suffix rule.
-  int good_suffix_mismatch(int i, std::vector<size_t> big_l_prime,
-                           std::vector<size_t> small_l_prime) {
+  /**
+   * @brief         Given a mismatch at offset i, and given L/L' and l' arrays,
+   *
+   * @param i       mismatch index
+   * @param big_l_prime      L' array get from big_l_prime_array
+   * @param small_l_prime       l' array get from small_l_prime_array
+   * @return size_t        amount to shift as determined by good suffix rule.
+   */
+  size_t good_suffix_mismatch(int i, std::vector<size_t> big_l_prime,
+                              std::vector<size_t> small_l_prime) {
     size_t length = big_l_prime.size();
     assert(i < length);
 
@@ -297,17 +336,23 @@ public:
     return (length - small_l_prime[i]);
   }
 
-  // calculate good suffix using border position
-  // (ref:
-  // https://www.geeksforgeeks.org/boyer-moore-algorithm-good-suffix-heuristic/)
+  /**
+   * @brief         calculate good suffix using border position
+   *                (ref:https://www.geeksforgeeks.org/boyer-moore-algorithm-good-suffix-heuristic/)
+   * @param pat     pattern
+   * @param bpos        border position array, length is m+1
+   * @param shift       shift array, length is m+1
+   */
   void good_suffix_rule(const std::string &pat, std::vector<size_t> &bpos,
                         std::vector<size_t> &shift) {
     size_t m = pat.size();
 
+    // start at m, backwards
     size_t i = m, j = m + 1;
     bpos[i] = j;
     while (i > 0) {
       while (j <= m && pat[i - 1] != pat[j - 1]) {
+        // mismatch at i-1. shift at i
         if (shift[j] == 0)
           shift[j] = j - i;
         j = bpos[j];
@@ -322,7 +367,15 @@ public:
     print_arr(shift);
   }
 
-  void prefix_suffix_case(const std::string &pat, std::vector<size_t> &bpos,
+  /**
+   * @brief     case 2, see refrence above
+   *
+   * @param pat     pattern
+   * @param bpos    border position array get from good_suffix_rule function
+   * @param shift   shift array get from good_suffix_rule function
+   */
+  void prefix_suffix_case(const std::string &pat,
+                          const std::vector<size_t> &bpos,
                           std::vector<size_t> &shift) {
     size_t j = bpos.at(0);
     size_t i = 0;
@@ -339,7 +392,13 @@ public:
     print_arr(shift);
   }
 
-  void goodsuffix(std::string text, std::string pat) {
+  /**
+   * @brief       boyer moore based on border position array
+   *
+   * @param text      text
+   * @param pat       pattern
+   */
+  void goodsuffix(const std::string &text, const std::string &pat) {
     size_t m = pat.size();
     size_t n = text.size();
 
@@ -350,7 +409,7 @@ public:
     std::map<char, std::vector<size_t>> ex_list;
     extended_processing(pat, ex_list);
 
-    size_t i = 0, j = m - 1;
+    int i = 0, j = m - 1;
     while (i <= n - m) {
       while (j > 0 && pat[j] != text[i + j]) {
         size_t bm_shift = get_bmshift(ex_list, text, i, j);
@@ -376,7 +435,14 @@ public:
     }
   }
 
-  size_t boyer_moore(std::string p, std::string t) {
+  /**
+   * @brief       boyer moore based on Gusfield
+   *
+   * @param p         pattern
+   * @param t         text
+   * @return size_t       number of matching occurrence
+   */
+  size_t boyer_moore(const std::string &p, const std::string &t) {
     size_t i = 0, miss = 0, match = 0;
     std::vector<size_t> match_indices;
     std::map<char, std::vector<size_t>> ex_list;
@@ -399,6 +465,7 @@ public:
           size_t skip_gs = good_suffix_mismatch(j, biglprime, smalllprime);
 
           shift = std::max(skip_bc, skip_gs);
+          // print mismatch position
           // std::cout<<"\nmismatch happend, bad character shift: "<< skip_bc <<
           // " , good suffix shift: "
           //     << skip_gs << '\n';
@@ -411,6 +478,7 @@ public:
         match++;
 
         match_indices.push_back(i);
+        // print matching position`
         // std::cout<<"\npattern matched at index "<<i<<" with text "
         //     << t.substr(0, i) <<" " << t.substr(i, m) <<" "<< t.substr(i+m,
         //     n-i-m) << '\n';
@@ -426,7 +494,13 @@ public:
   }
 };
 
-// reads a FASTA format file line-by-line, skipping the "name" lines
+/**
+ * @brief       reads a FASTA format file line-by-line, skipping the "name"
+ * lines
+ *
+ * @param fasta_filename
+ * @param T     string of text used in boyer moore
+ */
 static void read_fasta(const std::string &fasta_filename, std::string &T) {
   std::ifstream in(fasta_filename);
   if (!in)
