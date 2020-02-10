@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -70,11 +71,6 @@ public:
 
   //     1. bad character heuristic
 
-  /*
-   * This function use the basic bad character rule
-   * Just record the index of each character last showed.
-   */
-
   /**
    * @brief   preprocess of bad character rule. Record the index of each
    *          character in pattern, if one character occurs more than twice,
@@ -114,13 +110,15 @@ public:
     // print_map(ex_list);
   }
 
-  /*
-   * This function is to calculate the shift space for bad character rule
-   * :param ex_list: extended list containing all occurence of each character in
-   *                 pattern.
-   * :param text:    text.
-   * :param i:       start index of the text
-   * : param j:      current index of the pattern
+  /**
+   * @brief             calculate the shift space for bad character rule
+   *
+   * @param ex_list     extended list containing all occurence of each character
+   *                    in pattern.
+   * @param text        text
+   * @param i           start index of the text
+   * @param j           current index of the pattern
+   * @return size_t     shift spaces
    */
   size_t get_bmshift(std::map<char, std::vector<size_t>> ex_list,
                      std::string text, size_t i, size_t j) {
@@ -442,8 +440,8 @@ public:
    * @param t         text
    * @return size_t       number of matching occurrence
    */
-  size_t boyer_moore(const std::string &p, const std::string &t) {
-    size_t i = 0, miss = 0, match = 0;
+  void boyer_moore(const std::string &p, const std::string &t) {
+    size_t i = 0, match = 0;
     std::vector<size_t> match_indices;
     std::map<char, std::vector<size_t>> ex_list;
     extended_processing(p, ex_list);
@@ -454,12 +452,13 @@ public:
     std::vector<size_t> smalllprime = small_l_prime_array(narray);
 
     size_t m = p.length(), n = t.length();
+    auto start = std::chrono::steady_clock::now();
     while (i < n - m + 1) {
       size_t shift = 1;
       bool mismatch = false;
-      for (int j = m - 1; j >= 0; --j) {
+      size_t j = m;
+      while (j--) {
         if (p[j] != t[i + j]) {
-          miss++;
 
           size_t skip_bc = get_bmshift(ex_list, t, i, j);
           size_t skip_gs = good_suffix_mismatch(j, biglprime, smalllprime);
@@ -475,7 +474,6 @@ public:
         }
       }
       if (mismatch == false) {
-        match++;
 
         match_indices.push_back(i);
         // print matching position`
@@ -485,12 +483,21 @@ public:
         size_t skip_gs = smalllprime.size() - smalllprime[1];
         shift = std::max(shift, skip_gs);
       }
+      match += m - j;
       i += shift;
     }
-    std::cout << "all occurence indices:\n";
-    print_arr(match_indices);
+    auto end = std::chrono::steady_clock::now();
+    auto diff = end - start;
 
-    return match_indices.size();
+    // std::cout << "all occurence indices:\n";
+    // print_arr(match_indices);
+
+    std::cout << "\ntotal number of matching: " << match_indices.size() << '\n';
+    // std::cout << "\n total number of comparisions: " << match << '\n';
+    // std::cout << "\ntime used for comparision: ";
+    // std::cout <<
+    // std::chrono::duration_cast<std::chrono::seconds>(diff).count()
+    //           << " s" << std::endl;
   }
 };
 
@@ -519,19 +526,6 @@ static void read_fasta(const std::string &fasta_filename, std::string &T) {
       T += line;
 }
 
-// int main(){
-//     Boyer_Moore bm = Boyer_Moore();
-//     std::string T ("ACTTATTBTTCTT");
-//     std::string P("CTT");
-//     std::map<char, std::vector<size_t>> ex_list;
-//     // bm.extended_processing(P, ex_list);
-//     // bm.badchar(T, P);
-//     bm.boyer_moore(P, T);
-//     // std::reverse(T.begin(), T.end());
-//     // std::cout<<T;
-
-// }
-
 int main(int argc, const char *const argv[]) {
   if (argc != 3) {
     std::cerr << "usage: " << argv[0] << " <PATTERN> <TEXT>" << std::endl;
@@ -548,7 +542,5 @@ int main(int argc, const char *const argv[]) {
   // initialize
   Boyer_Moore bm = Boyer_Moore();
 
-  size_t occurence = bm.boyer_moore(P, T);
-  std::cout << "\ntotal number of matching occcurence is: " << occurence
-            << '\n';
+  bm.boyer_moore(P, T);
 }
