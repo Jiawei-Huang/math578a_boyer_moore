@@ -15,8 +15,18 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <vector>
+
+size_t dna_encoding[] = {
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0,
+    4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+};
 
 class Boyer_Moore {
 public:
@@ -139,6 +149,34 @@ public:
   }
 
   /**
+   * @brief     return skips of bad character rule when mismatch happend
+   *
+   * @param tab   pattern shift table
+   * @param text  mismatch character happend in text
+   * @param j     mismatch index in pattern
+   * @return size_t   shift space
+   */
+  size_t bad_character_mismatch(std::vector<std::vector<size_t> > &tab,
+                                const char &text, const size_t &j) {
+    size_t shift = 1;
+    if (dna_encoding[text] > 3)
+      shift = j + 1;
+    else {
+      size_t i = dna_encoding[text];
+      shift = j - tab[j][i] + 1;
+    }
+    // size_t m = tab[(int)text].size() - 1;
+    // size_t i = 0;
+    // while (i <= m && j < tab[(int)text][i]) {
+    //  i++;
+    //}
+    // if (i == m + 1)
+    //  return shift;
+    // shift = j - tab[(int)text][i];
+    return shift;
+  }
+
+  /**
    * @brief bad character boyer-moore algorithm
    *
    * @param text      text
@@ -176,6 +214,49 @@ public:
         i++;
       }
     }
+  }
+
+  /**
+   * @brief     Get the alphabet map object
+   *
+   * @param alphabet    alphabet we define, like "ACGT"
+   * @return std::map<char, size_t>     return a map from alphabet characters to
+   * integers
+   */
+  std::map<char, size_t> get_alphabet_map(const std::string alphabet = "ACGT") {
+    std::map<char, size_t> amap;
+    for (size_t i = 0; i < alphabet.size(); ++i) {
+      amap[alphabet[i]] = i;
+    }
+
+    return amap;
+  }
+
+  /**
+   * @brief     Given pattern string and list with ordered alphabet characters,
+   create and return a dense bad character table.  Table is indexed by offset
+                then by character.
+   *
+   * @param p     pattern
+   * @return std::vector<std::vector<size_t>> bad character table
+   */
+  std::vector<std::vector<size_t> > get_bad_char_table(const std::string &p) {
+    std::vector<size_t> index(p.size(), 0);
+    std::vector<std::vector<size_t> > table;
+    // table.resize(256);
+
+    // size_t i = p.size();
+    // while (i--) {
+    //  table[(int)p[i]].push_back(i);
+    //}
+
+    for (size_t i = 0; i < p.size(); ++i) {
+      char c = p[i];
+      table.push_back(index);
+      index[dna_encoding[c]] = i + 1;
+    }
+
+    return table;
   }
 
   //     2. goof suffix rule
@@ -318,10 +399,10 @@ public:
    * @param small_l_prime       l' array get from small_l_prime_array
    * @return size_t        amount to shift as determined by good suffix rule.
    */
-  size_t good_suffix_mismatch(int i, std::vector<size_t> big_l_prime,
-                              std::vector<size_t> small_l_prime) {
+  size_t good_suffix_mismatch(int i, const std::vector<size_t> &big_l_prime,
+                              const std::vector<size_t> &small_l_prime) {
     size_t length = big_l_prime.size();
-    assert(i < length);
+    // assert(i < length);
 
     if (i == length - 1)
       return 1;
@@ -393,7 +474,7 @@ public:
    * @brief       boyer moore based on border position array
    *
    * @param text      text
-   * @param pat       pattern
+   * @param pat       pattern`
    */
   void goodsuffix(const std::string &text, const std::string &pat) {
     size_t m = pat.size();
@@ -442,8 +523,9 @@ public:
   void boyer_moore(const std::string &p, const std::string &t) {
     size_t i = 0, match = 0, comparision = 0;
     // std::vector<size_t> match_indices;
-    std::map<char, std::vector<size_t> > ex_list;
-    extended_processing(p, ex_list);
+    // std::map<char, std::vector<size_t>> ex_list;
+    // extended_processing(p, ex_list);
+    std::vector<std::vector<size_t> > tab = get_bad_char_table(p);
 
     std::vector<size_t> narray = n_array(p);
     std::vector<size_t> biglprime = big_l_prime_array(p, narray);
@@ -454,37 +536,51 @@ public:
     auto start = std::chrono::steady_clock::now();
     while (i < n - m + 1) {
       size_t shift = 1;
-      bool mismatch = false;
-      size_t j = m;
-      while (j--) {
-        if (p[j] != t[i + j]) {
 
-          size_t skip_bc = get_bmshift(ex_list, t[i + j], i, j);
-          size_t skip_gs = good_suffix_mismatch(j, biglprime, smalllprime);
-
-          shift = std::max(skip_bc, skip_gs);
-          // print mismatch position
-          // std::cout<<"\nmismatch happend, bad character shift: "<< skip_bc <<
-          // " , good suffix shift: "
-          //     << skip_gs << '\n';
-          // print_mismatch(p, t, i, j, shift);
-          mismatch = true;
-          comparision += m - j;
-          break;
-        }
+      int j = m - 1;
+      while (j >= 0 && p[j] == t[i + j]) {
+        j--;
       }
-      if (mismatch == false) {
+      comparision += m - j;
+      if (j < 0) {
         match++;
-        // match_indices.push_back(i);
-        // print matching position`
-        // std::cout<<"\npattern matched at index "<<i<<" with text "
-        //     << t.substr(0, i) <<" " << t.substr(i, m) <<" "<< t.substr(i+m,
-        //     n-i-m) << '\n';
-        size_t skip_gs = smalllprime.size() - smalllprime[1];
-        shift = std::max(shift, skip_gs);
-        comparision += m;
+        comparision--;
+        shift = m - smalllprime[1];
+        //  size_t skip_gs = smalllprime.size() - smalllprime[1];
+        //  shift = std::max(shift, skip_gs);
+      } else {
+        size_t skip_bc = bad_character_mismatch(tab, t[i + j], j);
+        size_t skip_gs = good_suffix_mismatch(j, biglprime, smalllprime);
+        shift = std::max(skip_bc, skip_gs);
       }
       i += shift;
+      //   while (j--) {
+      //     if (p[j] != t[i + j]) {
+
+      //       // size_t skip_bc = get_bmshift(ex_list, t[i + j], i, j);
+      //       size_t skip_bc = bad_character_mismatch(tab, t[i + j], j);
+      //       size_t skip_gs = good_suffix_mismatch(j, biglprime, smalllprime);
+      //       shift = std::max(skip_bc, skip_gs);
+      // // print mismatch position
+      // std::cout << "\nmismatch happend, bad character shift: " << skip_bc
+      //           << " , good suffix shift: " << skip_gs << '\n';
+      // print_mismatch(p, t, i, j, shift);
+      //       mismatch = true;
+      //       comparision += m - j;
+      //       break;
+      //     }
+      //   }
+      //   if (mismatch == false) {
+      //     match++;
+      // print matching position
+      // std::cout << "\npattern matched at index " << i << " with text "
+      //           << t.substr(0, i) << " " << t.substr(i, m) << " "
+      //           << t.substr(i + m, n - i - m) << '\n';
+      //     size_t skip_gs = smalllprime.size() - smalllprime[1];
+      //     shift = std::max(shift, skip_gs);
+      //     comparision += m;
+      //   }
+      //   i += shift;
     }
     auto end = std::chrono::steady_clock::now();
     auto diff = end - start;
@@ -525,6 +621,66 @@ static void read_fasta(const std::string &fasta_filename, std::string &T) {
       T += line;
 }
 
+// This function just removes the sequence (e.g. chromosome) names and
+// newlines from a string loaded from a FASTA file. It is not
+// optimized for speed, but it should be pretty clear.
+static void remove_names_newlines(std::string &T) {
+  bool outside_name = true;
+  size_t j = 0;
+  const size_t n = T.size();
+  for (size_t i = 0; i < n; ++i) {
+    const char c = T[i];
+    if (outside_name) {
+      if (c == '>')
+        outside_name = false;
+      else if (c != '\n') {
+        T[j++] = c;
+      }
+    } else
+      outside_name = (c == '\n');
+  }
+  // resize but keep capacity
+  T.resize(j);
+}
+
+// The "get_filesize" below uses some pretty specific C++ code for
+// "streams" and if you don't understand it, that's fine.
+static size_t get_filesize(const std::string &filename) {
+  std::ifstream in(filename);
+  if (!in)
+    throw std::runtime_error("problem with file: " + filename);
+  const std::streampos begin_pos = in.tellg();
+  in.seekg(0, std::ios_base::end);
+  return in.tellg() - begin_pos;
+}
+
+static void read_fasta_as_one_sequence(const std::string &fasta_filename,
+                                       std::string &T) {
+  T.clear(); // start with empty string
+
+  const size_t filesize = get_filesize(fasta_filename);
+
+  // using "C" functions to read in the input because on my mac there
+  // is a problem with reading large files using a single "read"
+  // function call when using C++ streams...
+  FILE *in = fopen(fasta_filename.c_str(), "rb");
+  if (!in)
+    throw std::runtime_error("problem with file: " + fasta_filename);
+
+  T.resize(filesize); // change *size*, not capacity of T here
+
+  if (fread((char *)&T[0], 1, filesize, in) != filesize)
+    throw std::runtime_error("problem with file: " + fasta_filename);
+
+  if (fclose(in) != 0)
+    throw std::runtime_error("problem with file: " + fasta_filename);
+
+  // remove the sequence names from the FASTA format string, along
+  // with the newline characters, what remains should be just DNA
+  // bases (maybe with a few random IUPAC degenerate nucleotides)
+  remove_names_newlines(T);
+}
+
 int main(int argc, const char *const argv[]) {
   if (argc != 3) {
     std::cerr << "usage: " << argv[0] << " <PATTERN> <TEXT>" << std::endl;
@@ -533,7 +689,7 @@ int main(int argc, const char *const argv[]) {
 
   const std::string P(argv[1]);
   std::string T;
-  read_fasta(argv[2], T);
+  read_fasta_as_one_sequence(argv[2], T);
 
   // make sure pattern not bigger than text
   assert(P.length() <= T.length());
