@@ -526,21 +526,43 @@ static void read_fasta(const std::string &fasta_filename, std::string &T) {
       T += line;
 }
 
-int main(int argc, const char *const argv[]) {
-  if (argc != 3) {
-    std::cerr << "usage: " << argv[0] << " <PATTERN> <TEXT>" << std::endl;
-    return EXIT_FAILURE;
-  }
+// int main(int argc, const char *const argv[]) {
+//   if (argc != 3) {
+//     std::cerr << "usage: " << argv[0] << " <PATTERN> <TEXT>" << std::endl;
+//     return EXIT_FAILURE;
+//   }
 
-  const std::string P(argv[1]);
-  std::string T;
-  read_fasta(argv[2], T);
+//   const std::string P(argv[1]);
+//   std::string T;
+//   read_fasta(argv[2], T);
 
-  // make sure pattern not bigger than text
-  assert(P.length() <= T.length());
+//   // make sure pattern not bigger than text
+//   assert(P.length() <= T.length());
 
-  // initialize
-  Boyer_Moore bm = Boyer_Moore();
+//   // initialize
+//   Boyer_Moore bm = Boyer_Moore();
 
-  bm.boyer_moore(P, T);
+//   bm.boyer_moore(P, T);
+// }
+
+
+#include <stdio.h>
+int main() {
+    char str[1000], ch;
+    int count = 0;
+
+    printf("Input the string: ");
+    scanf("%s", &str);
+
+    printf("Input the character: ");
+    scanf("%c", &ch);
+
+    for (int i = 0; str[i] != '\0'; ++i) {
+        if (ch == str[i])
+            ++count;
+    }
+
+    printf("%c appears in the string %d times", ch, count);
+    return 0;
 }
+

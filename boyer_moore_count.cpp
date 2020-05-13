@@ -36,8 +36,8 @@ public:
    *
    * @param mymap:      map to be printed, values are vectors
    */
-  void print_map(std::map<char, std::vector<size_t>> &mymap) {
-    for (std::map<char, std::vector<size_t>>::iterator it = mymap.begin();
+  void print_map(std::map<char, std::vector<size_t> > &mymap) {
+    for (std::map<char, std::vector<size_t> >::iterator it = mymap.begin();
          it != mymap.end(); ++it) {
       std::cout << it->first << " : ";
       print_arr(it->second);
@@ -96,7 +96,7 @@ public:
    * @param ex_list     list to store all the occurrence of characters
    */
   void extended_processing(const std::string &pat,
-                           std::map<char, std::vector<size_t>> &ex_list) {
+                           std::map<char, std::vector<size_t> > &ex_list) {
     // scan P from right to left(reversed order)
     size_t i = pat.size();
     while (i--) {
@@ -120,10 +120,9 @@ public:
    * @param j           current index of the pattern
    * @return size_t     shift spaces
    */
-  size_t get_bmshift(std::map<char, std::vector<size_t>> ex_list,
-                     std::string text, size_t i, size_t j) {
-    std::map<char, std::vector<size_t>>::iterator it =
-        ex_list.find(text[i + j]);
+  size_t get_bmshift(std::map<char, std::vector<size_t> > &ex_list,
+                     const char &text, const size_t &i, const size_t &j) {
+    std::map<char, std::vector<size_t> >::iterator it = ex_list.find(text);
     size_t shift = 0;
     if (it == ex_list.end())
       shift = j + 1;
@@ -151,7 +150,7 @@ public:
     std::map<char, size_t> alphabet;
 
     processing(pat, alphabet);
-    std::map<char, std::vector<size_t>> ex_list;
+    std::map<char, std::vector<size_t> > ex_list;
     extended_processing(pat, ex_list);
 
     size_t i = 0;
@@ -159,7 +158,7 @@ public:
     while (i <= n - m) {
       while (pat[j] != text[i + j]) {
         std::cout << "mismatch happend \n";
-        size_t shift = get_bmshift(ex_list, text, i, j);
+        size_t shift = get_bmshift(ex_list, text[i + j], i, j);
         // int shift = std::max(j - alphabet.at(text[i+j]), 1);
 
         print_mismatch(pat, text, i, j, shift);
@@ -404,13 +403,13 @@ public:
     std::vector<size_t> bpos(m + 1, 0);
     good_suffix_rule(pat, bpos, shift);
     prefix_suffix_case(pat, bpos, shift);
-    std::map<char, std::vector<size_t>> ex_list;
+    std::map<char, std::vector<size_t> > ex_list;
     extended_processing(pat, ex_list);
 
     int i = 0, j = m - 1;
     while (i <= n - m) {
       while (j > 0 && pat[j] != text[i + j]) {
-        size_t bm_shift = get_bmshift(ex_list, text, i, j);
+        size_t bm_shift = get_bmshift(ex_list, text[i + j], i, j);
         size_t gs_shift = shift.at(j + 1);
 
         if (bm_shift > gs_shift) {
@@ -443,7 +442,7 @@ public:
   void boyer_moore(const std::string &p, const std::string &t) {
     size_t i = 0, match = 0, comparision = 0;
     // std::vector<size_t> match_indices;
-    std::map<char, std::vector<size_t>> ex_list;
+    std::map<char, std::vector<size_t> > ex_list;
     extended_processing(p, ex_list);
 
     std::vector<size_t> narray = n_array(p);
@@ -460,7 +459,7 @@ public:
       while (j--) {
         if (p[j] != t[i + j]) {
 
-          size_t skip_bc = get_bmshift(ex_list, t, i, j);
+          size_t skip_bc = get_bmshift(ex_list, t[i + j], i, j);
           size_t skip_gs = good_suffix_mismatch(j, biglprime, smalllprime);
 
           shift = std::max(skip_bc, skip_gs);
