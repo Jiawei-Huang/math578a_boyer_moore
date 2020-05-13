@@ -3,4 +3,4 @@
 *.fasta
 *.fa
 *.fna
-*.ipynb_checkpoints/
+.ipynb_checkpoints

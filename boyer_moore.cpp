@@ -15,8 +15,18 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <vector>
+
+size_t dna_encoding[] = {
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0,
+    4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 4, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+};
 
 class Boyer_Moore {
 public:
@@ -56,7 +66,7 @@ public:
   }
 
   void print_mismatch(const std::string &pat, const std::string &text,
-                      size_t &i, const size_t &j, const size_t &shift) {
+                      const size_t &i, const size_t &j, const size_t &shift) {
     size_t n = text.size(), m = pat.size();
     std::cout << text.substr(0, i + j) << " | " << text.substr(i + j, 1)
               << " | " << text.substr(i + j + 1, n - i - j) << '\n';
@@ -64,122 +74,57 @@ public:
     std::cout << std::string(i, ' ') << pat.substr(0, j) << " | "
               << pat.substr(j, 1) << " | " << pat.substr(j + 1, m - j) << '\n';
 
-    i += shift;
     std::cout << "after shifting " << shift << " space text starts matching at "
-              << text.substr(0, i) << " | " << text.substr(i, n - i) << '\n';
+              << text.substr(0, i + shift) << " | "
+              << text.substr(i + shift, n - i - shift) << '\n';
   }
-
+  //***********************************************
   //     1. bad character heuristic
-
+  //***********************************************
   /**
-   * @brief   preprocess of bad character rule. Record the index of each
-   *          character in pattern, if one character occurs more than twice,
-   *          record the rightmost one
+   * @brief     return skips of bad character rule when mismatch happend
    *
-   * @param pat   pattern
-   * @param alphabet map to store index in pattern, for unique characters showed
-   * in text while not in pattern, default 0
+   * @param tab   pattern shift table
+   * @param text  mismatch character happend in text
+   * @param j     mismatch index in pattern
+   * @return size_t   shift space
    */
-  void processing(const std::string &pat, std::map<char, size_t> &alphabet) {
-    for (size_t i = 0; i < pat.size(); ++i) {
-      alphabet[pat[i]] = i;
-    }
-    std::cout << "Bad character array list :\n";
-    print_map(alphabet);
-  }
-
-  /**
-   * @brief     preprocessing of extended bad character rule. Using a list to
-   *            record all the occurrence of each character of the pattern
-   *
-   * @param pat     pattern
-   * @param ex_list     list to store all the occurrence of characters
-   */
-  void extended_processing(const std::string &pat,
-                           std::map<char, std::vector<size_t>> &ex_list) {
-    // scan P from right to left(reversed order)
-    size_t i = pat.size();
-    while (i--) {
-      if (ex_list.find(pat[i]) == ex_list.end())
-        ex_list[pat[i]] = std::vector<size_t>(1, i);
-      else
-        ex_list[pat[i]].push_back(i);
-    }
-
-    // std::cout << "character : index\n";
-    // print_map(ex_list);
-  }
-
-  /**
-   * @brief             calculate the shift space for bad character rule
-   *
-   * @param ex_list     extended list containing all occurence of each character
-   *                    in pattern.
-   * @param text        text
-   * @param i           start index of the text
-   * @param j           current index of the pattern
-   * @return size_t     shift spaces
-   */
-  size_t get_bmshift(std::map<char, std::vector<size_t>> ex_list,
-                     std::string text, size_t i, size_t j) {
-    std::map<char, std::vector<size_t>>::iterator it =
-        ex_list.find(text[i + j]);
-    size_t shift = 0;
-    if (it == ex_list.end())
+  size_t bad_character_mismatch(std::vector<std::vector<size_t>> &tab,
+                                const char &text, const size_t &j) {
+    size_t shift = 1;
+    if (dna_encoding[text] > 3)
       shift = j + 1;
     else {
-      for (auto &k : it->second) {
-        if (k < j) {
-          shift = j - k;
-          break;
-        } else
-          shift = j + 1;
-      }
+      size_t i = dna_encoding[text];
+      shift = j - tab[j][i] + 1;
     }
     return shift;
   }
 
   /**
-   * @brief bad character boyer-moore algorithm
+   * @brief     Given pattern string and list with ordered alphabet characters,
+   create and return a dense bad character table.  Table is indexed by offset
+                then by character.
    *
-   * @param text      text
-   * @param pat       pattern
+   * @param p     pattern
+   * @return std::vector<std::vector<size_t>> bad character table
    */
-  void badchar(const std::string &text, const std::string &pat) {
-    size_t n = text.size();
-    size_t m = pat.size();
-    std::map<char, size_t> alphabet;
+  std::vector<std::vector<size_t>> get_bad_char_table(const std::string &p) {
+    std::vector<size_t> index(p.size(), 0);
+    std::vector<std::vector<size_t>> table;
 
-    processing(pat, alphabet);
-    std::map<char, std::vector<size_t>> ex_list;
-    extended_processing(pat, ex_list);
-
-    size_t i = 0;
-    int j = m - 1;
-    while (i <= n - m) {
-      while (pat[j] != text[i + j]) {
-        std::cout << "mismatch happend \n";
-        size_t shift = get_bmshift(ex_list, text, i, j);
-        // int shift = std::max(j - alphabet.at(text[i+j]), 1);
-
-        print_mismatch(pat, text, i, j, shift);
-        i += shift;
-        j = m - 1;
-      }
-
-      j--;
-
-      if (j < 0) {
-        std::cout << "pattern matched at index " << i << " with text "
-                  << text.substr(0, i) << " " << text.substr(i, m) << " "
-                  << text.substr(i + m, n - i - m) << '\n';
-        j = m - 1;
-        i++;
-      }
+    for (size_t i = 0; i < p.size(); ++i) {
+      char c = p[i];
+      table.push_back(index);
+      index[dna_encoding[c]] = i + 1;
     }
+
+    return table;
   }
 
+  //*******************************************
   //     2. goof suffix rule
+  //*******************************************
   /**
    * @brief     naive match function, one string with two different starting
    * positions
@@ -302,7 +247,7 @@ public:
       if (n[i] == i + 1) // prefix matching a suffix
         small_lp[n.size() - i - 1] = i + 1;
     }
-    // then for any i < j, l'[i] = l'[j], here
+    // then for any i < j, l'[i] = l'[j]
     for (int i = n.size() - 2; i >= 0; --i) {
       if (small_lp[i] == 0) // smear them out to the left
         small_lp[i] = small_lp[i + 1];
@@ -319,8 +264,8 @@ public:
    * @param small_l_prime       l' array get from small_l_prime_array
    * @return size_t        amount to shift as determined by good suffix rule.
    */
-  size_t good_suffix_mismatch(int i, std::vector<size_t> big_l_prime,
-                              std::vector<size_t> small_l_prime) {
+  size_t good_suffix_mismatch(int i, const std::vector<size_t> &big_l_prime,
+                              const std::vector<size_t> &small_l_prime) {
     size_t length = big_l_prime.size();
     assert(i < length);
 
@@ -335,105 +280,6 @@ public:
   }
 
   /**
-   * @brief         calculate good suffix using border position
-   *                (ref:https://www.geeksforgeeks.org/boyer-moore-algorithm-good-suffix-heuristic/)
-   * @param pat     pattern
-   * @param bpos        border position array, length is m+1
-   * @param shift       shift array, length is m+1
-   */
-  void good_suffix_rule(const std::string &pat, std::vector<size_t> &bpos,
-                        std::vector<size_t> &shift) {
-    size_t m = pat.size();
-
-    // start at m, backwards
-    size_t i = m, j = m + 1;
-    bpos[i] = j;
-    while (i > 0) {
-      while (j <= m && pat[i - 1] != pat[j - 1]) {
-        // mismatch at i-1. shift at i
-        if (shift[j] == 0)
-          shift[j] = j - i;
-        j = bpos[j];
-      }
-      i--;
-      j--;
-      bpos[i] = j;
-    }
-    std::cout << "bpos list: ";
-    print_arr(bpos);
-    std::cout << "shift list: ";
-    print_arr(shift);
-  }
-
-  /**
-   * @brief     case 2, see refrence above
-   *
-   * @param pat     pattern
-   * @param bpos    border position array get from good_suffix_rule function
-   * @param shift   shift array get from good_suffix_rule function
-   */
-  void prefix_suffix_case(const std::string &pat,
-                          const std::vector<size_t> &bpos,
-                          std::vector<size_t> &shift) {
-    size_t j = bpos.at(0);
-    size_t i = 0;
-    size_t m = pat.size();
-
-    while (i <= m) {
-      if (shift.at(i) == 0)
-        shift.at(i) = j;
-      if (i == j)
-        j = bpos.at(j);
-      i++;
-    }
-    std::cout << "final shift list: ";
-    print_arr(shift);
-  }
-
-  /**
-   * @brief       boyer moore based on border position array
-   *
-   * @param text      text
-   * @param pat       pattern
-   */
-  void goodsuffix(const std::string &text, const std::string &pat) {
-    size_t m = pat.size();
-    size_t n = text.size();
-
-    std::vector<size_t> shift(m + 1, 0);
-    std::vector<size_t> bpos(m + 1, 0);
-    good_suffix_rule(pat, bpos, shift);
-    prefix_suffix_case(pat, bpos, shift);
-    std::map<char, std::vector<size_t>> ex_list;
-    extended_processing(pat, ex_list);
-
-    int i = 0, j = m - 1;
-    while (i <= n - m) {
-      while (j > 0 && pat[j] != text[i + j]) {
-        size_t bm_shift = get_bmshift(ex_list, text, i, j);
-        size_t gs_shift = shift.at(j + 1);
-
-        if (bm_shift > gs_shift) {
-          std::cout << "choose bm_shift " << bm_shift << '\n';
-          i += bm_shift;
-        } else {
-          std::cout << "choose gs_shift " << gs_shift << '\n';
-          i += gs_shift;
-        }
-        j = m - 1;
-      }
-      j--;
-      if (j < 0) {
-        std::cout << "pattern matched at index " << i << " with text "
-                  << text.substr(i, m) << " " << text.substr(i + m, n - i - m)
-                  << '\n';
-        j = m - 1;
-        i += shift.at(0);
-      }
-    }
-  }
-
-  /**
    * @brief       boyer moore based on Gusfield
    *
    * @param p         pattern
@@ -441,10 +287,8 @@ public:
    * @return size_t       number of matching occurrence
    */
   void boyer_moore(const std::string &p, const std::string &t) {
-    size_t i = 0, match = 0;
-    std::vector<size_t> match_indices;
-    std::map<char, std::vector<size_t>> ex_list;
-    extended_processing(p, ex_list);
+    size_t i = 0, match = 0, comparision = 0;
+    std::vector<std::vector<size_t>> tab = get_bad_char_table(p);
 
     std::vector<size_t> narray = n_array(p);
     std::vector<size_t> biglprime = big_l_prime_array(p, narray);
@@ -459,45 +303,34 @@ public:
       size_t j = m;
       while (j--) {
         if (p[j] != t[i + j]) {
-
-          size_t skip_bc = get_bmshift(ex_list, t, i, j);
+          size_t skip_bc = bad_character_mismatch(tab, t[i + j], j);
           size_t skip_gs = good_suffix_mismatch(j, biglprime, smalllprime);
-
           shift = std::max(skip_bc, skip_gs);
           // print mismatch position
-          // std::cout<<"\nmismatch happend, bad character shift: "<< skip_bc <<
-          // " , good suffix shift: "
-          //     << skip_gs << '\n';
-          mismatch = true;
+          // std::cout << "\nmismatch happend, bad character shift: " << skip_bc
+          //           << " , good suffix shift: " << skip_gs << '\n';
           // print_mismatch(p, t, i, j, shift);
+          mismatch = true;
+          comparision += m - j;
           break;
         }
       }
       if (mismatch == false) {
-
-        match_indices.push_back(i);
-        // print matching position`
-        // std::cout<<"\npattern matched at index "<<i<<" with text "
-        //     << t.substr(0, i) <<" " << t.substr(i, m) <<" "<< t.substr(i+m,
-        //     n-i-m) << '\n';
+        match++;
+        // print matching position
+        // std::cout << "\npattern matched at index " << i << " with text "
+        //           << t.substr(0, i) << " " << t.substr(i, m) << " "
+        //           << t.substr(i + m, n - i - m) << '\n';
         size_t skip_gs = smalllprime.size() - smalllprime[1];
         shift = std::max(shift, skip_gs);
+        comparision += m;
       }
-      match += m - j;
       i += shift;
     }
     auto end = std::chrono::steady_clock::now();
     auto diff = end - start;
 
-    // std::cout << "all occurence indices:\n";
-    // print_arr(match_indices);
-
-    std::cout << "\ntotal number of matching: " << match_indices.size() << '\n';
-    // std::cout << "\n total number of comparisions: " << match << '\n';
-    // std::cout << "\ntime used for comparision: ";
-    // std::cout <<
-    // std::chrono::duration_cast<std::chrono::seconds>(diff).count()
-    //           << " s" << std::endl;
+    std::cout << "total number of matching: " << match << '\n';
   }
 };
 
@@ -526,43 +359,22 @@ static void read_fasta(const std::string &fasta_filename, std::string &T) {
       T += line;
 }
 
-// int main(int argc, const char *const argv[]) {
-//   if (argc != 3) {
-//     std::cerr << "usage: " << argv[0] << " <PATTERN> <TEXT>" << std::endl;
-//     return EXIT_FAILURE;
-//   }
+int main(int argc, const char *const argv[]) {
+  if (argc != 3) {
+    std::cerr << "usage: " << argv[0] << " <PATTERN> <TEXT>" << std::endl;
+    return EXIT_FAILURE;
+  }
 
-//   const std::string P(argv[1]);
-//   std::string T;
-//   read_fasta(argv[2], T);
+  const std::string P(argv[1]);
+  std::string T;
+  read_fasta(argv[2], T);
+  // std::cout << "length: " << T.length();
 
-//   // make sure pattern not bigger than text
-//   assert(P.length() <= T.length());
+  // make sure pattern not bigger than text
+  assert(P.length() <= T.length());
 
-//   // initialize
-//   Boyer_Moore bm = Boyer_Moore();
-
-//   bm.boyer_moore(P, T);
-// }
-
-
-#include <stdio.h>
-int main() {
-    char str[1000], ch;
-    int count = 0;
-
-    printf("Input the string: ");
-    scanf("%s", &str);
-
-    printf("Input the character: ");
-    scanf("%c", &ch);
-
-    for (int i = 0; str[i] != '\0'; ++i) {
-        if (ch == str[i])
-            ++count;
-    }
-
-    printf("%c appears in the string %d times", ch, count);
-    return 0;
+  // initialize
+  Boyer_Moore bm = Boyer_Moore();
+  
+  bm.boyer_moore(P, T);
 }
-
